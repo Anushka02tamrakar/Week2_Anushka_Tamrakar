@@ -1,9 +1,8 @@
 import express, { Request, Response } from 'express';
 import { performArrayStringFunctions } from './arrayFunctions'
 import * as studentUtils from './studentUtils';
-import { filterOrders } from './filter';
 import bodyParser from 'body-parser';
-
+import pool from './pgConfig';
 
 
 const app = express();
@@ -12,11 +11,49 @@ const PORT = 3000;
 app.use(express.json());
 app.use(bodyParser.json());
 
+// Define the structure of the items
+interface OrderBlock {
+    lineNo: number | number[];
+    ProductCode: string;
+}
 
-app.post('/filter_orders', (req, res) => {
-    const filteredOrders = filterOrders(req.body.items);
-    res.json({ filteredOrders });
+interface Item {
+    orderID: string;
+    orderInvoiceNo: string;
+    OrderBlocks: OrderBlock[];
+}
+
+app.post('/processOrders', async (req: Request<{}, {}, { items: Item[] }>, res: Response) => {
+    try {
+        const { items } = req.body;
+
+        // Filter out orders based on the criteria
+        const filteredOrders = items.filter(item =>
+            item.OrderBlocks.some(block =>
+                Array.isArray(block.lineNo) ?
+                    block.lineNo.some(line => line % 3 !== 0) :
+                    block.lineNo % 3 !== 0
+            )
+        );
+
+        // Extract orderIDs
+        const orderIDs = filteredOrders.map(order => order.orderID);
+
+        // Iterate over orderIDs and store them in the database
+        for (const orderID of orderIDs) {
+            await pool.query('INSERT INTO orders (orderID) VALUES ($1)', [orderID]);
+        }
+
+        res.status(200).json({ message: 'Orders processed and stored successfully.' });
+    } catch (error) {
+        console.error('Error processing orders:', error);
+        res.status(500).json({ error: 'An error occurred while processing orders.' });
+    }
 });
+
+
+
+
 
 const students = [
     { name: "Alice", age: 20, grade: 75 },
