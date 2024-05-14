@@ -50,11 +50,7 @@ app.post('/processOrders', async (req: Request<{}, {}, { items: Item[] }>, res: 
         res.status(500).json({ error: 'An error occurred while processing orders.' });
     }
 });
-
-
-
-
-
+//students
 const students = [
     { name: "Alice", age: 20, grade: 75 },
     { name: "Bob", age: 22, grade: 85 },
